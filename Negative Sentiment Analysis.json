@@ -1,0 +1,1019 @@
+{
+  "name": "Negative Sentiment Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Negative Reviews Sentiments",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Reviews Sheet URL (Give access to keshavmakkad10@gmail.com)"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -3136,
+        768
+      ],
+      "id": "16395d70-412e-401a-ab33-b468cf92b38a",
+      "name": "On form submission",
+      "webhookId": "4851a6d2-3778-4018-99f0-04366c468a35"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.spreadsheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.gid }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2688,
+        672
+      ],
+      "id": "a0dde630-c038-4fd3-ac42-6efac4356255",
+      "name": "Get Reviews Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "UErdyQdheIHrkGHZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/14czilnWDIut9vY6j6XbQvhP_jN0BntXCnOVHqptaz-c/edit?usp=drivesdk",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "id",
+          "value": 308938362
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2688,
+        864
+      ],
+      "id": "dd4544a2-d0ae-4d9e-89be-bdca7f820947",
+      "name": "Get Products Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "UErdyQdheIHrkGHZ",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $input.first().json['Reviews Sheet URL (Give access to keshavmakkad10@gmail.com)'];\n\nconst spreadsheetId = url.match(/\\/d\\/([a-zA-Z0-9-_]+)/)[1];\n\nconst gidMatch = url.match(/gid=(\\d+)/);\n\nconst gid = gidMatch ? gidMatch[1] : '0';\nreturn [{ json: { spreadsheetId, gid } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2912,
+        672
+      ],
+      "id": "1f2108cb-aaf0-4bf5-9ec2-a156ce902363",
+      "name": "Get Sheet ID and GID"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "fieldsToMatchString": "product_id",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2240,
+        768
+      ],
+      "id": "e50e7137-3b57-4db8-8e55-dc78f8b9b58a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => ({\n  json: {\n    rating: item.json['rating'],\n    review_title: item.json['review_title'],\n    review_text: item.json['review_text'],\n    skin_type: item.json['skin_type'],\n    product_id: item.json['product_id'],\n    product_name: item.json['product_name'],\n    brand_name: item.json['brand_name'],\n    price_usd: item.json['price_usd']\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2016,
+        768
+      ],
+      "id": "363b0fa3-9578-449a-b12c-75374bd78aba",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const { rating, ...rest } = item.json;\n  return { json: rest };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2464,
+        864
+      ],
+      "id": "b3da6bda-3c1d-411e-8a87-1dc7341c6c29",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.0-flash-lite-001",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.0-flash-lite-001"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Here is a batch of negative customer reviews. Classify each one and return the JSON array as instructed.\n\nReviews:\n{{ JSON.stringify($input.all().map(i => i.json)) }}",
+              "role": "model"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "You are a product review analyst for a skincare and beauty brand.  You will receive a batch of negative customer reviews. For each review, classify it into exactly one of the following buckets:  - Delivery / Logistics - Packaging - Skin Reaction - Efficacy / Results - Texture / Consistency - Smell / Fragrance - Price / Value - Authenticity - Customer Service - Other  Rules: - Return ONLY a valid JSON array, no explanation, no markdown, no backticks - Each review must produce exactly one row in the output — even if the same product appears multiple times - If a product has 3 negative reviews, it must appear as 3 separate rows with 3 separate buckets - If a review does not clearly fit any bucket, use \"Other\" - Base classification primarily on review_text, use review_title as supporting context  Output format — each object must have exactly these fields: [   {     \"product_id\": \"P123\",     \"product_name\": \"Some Serum\",     \"brand_name\": \"BRAND\",     \"price_usd\": 45,     \"skin_type\": \"oily\",     \"rating\": 2,     \"review_title\": \"Terrible\",     \"review_text\": \"Made my skin worse\",     \"bucket\": \"Skin Reaction\"   } ]"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -3136,
+        2224
+      ],
+      "id": "655d3fb6-e7c2-4963-86f1-7f2dab4e1711",
+      "name": "Message a model",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn [{\n  json: {\n    reviews: items.map(item => item.json)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3136,
+        1328
+      ],
+      "id": "cd91e750-a132-4c83-a93f-a9f2edd24e35",
+      "name": "Code in JavaScript2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "batchSize": 25,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1792,
+        464
+      ],
+      "id": "2d23360c-2421-453d-a1ab-54363c5f6943",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me",
+      "typeVersion": 1,
+      "position": [
+        -3136,
+        1776
+      ],
+      "id": "c19595e1-b2ac-48b8-b517-620b2546e9ff",
+      "placeholder": true
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Here is a batch of negative customer reviews. Classify each one and return the JSON array as instructed.\n\nReviews:\n{{ JSON.stringify($input.all().map(i => i.json)) }}",
+              "role": "model"
+            }
+          ]
+        },
+        "simplify": false,
+        "jsonOutput": true,
+        "builtInTools": {},
+        "options": {
+          "systemMessage": "You are a product review analyst for a skincare and beauty brand.  You will receive a batch of negative customer reviews. For each review, classify it into exactly one of the following buckets:  - Delivery / Logistics - Packaging - Skin Reaction - Efficacy / Results - Texture / Consistency - Smell / Fragrance - Price / Value - Authenticity - Customer Service - Other  Rules: - Return ONLY a valid JSON array, no explanation, no markdown, no backticks - Each review must produce exactly one row in the output — even if the same product appears multiple times - If a product has 3 negative reviews, it must appear as 3 separate rows with 3 separate buckets - If a review does not clearly fit any bucket, use \"Other\" - Base classification primarily on review_text, use review_title as supporting context  Output format — each object must have exactly these fields: [   {     \"product_id\": \"P123\",     \"product_name\": \"Some Serum\",     \"brand_name\": \"BRAND\",     \"price_usd\": 45,     \"skin_type\": \"oily\",     \"rating\": 2,     \"review_title\": \"Terrible\",     \"review_text\": \"Made my skin worse\",     \"bucket\": \"Skin Reaction\"   } ]"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -3136,
+        2000
+      ],
+      "id": "5f5388ba-e2e3-465d-b709-bab224a1fc15",
+      "name": "Message a model1",
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "maxTries": 5
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "reviews",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1568,
+        304
+      ],
+      "id": "b894980c-0117-4c19-8624-5c8359b5b579",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst filtered = items.filter(item => {\n  const rating = parseFloat(item.json['rating']);\n  return rating <= 1;\n}).slice(0, 25);\n\nreturn filtered.map(item => ({ json: item.json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2464,
+        672
+      ],
+      "id": "14f18700-e295-4d63-884f-8b0c93cb4b7c",
+      "name": "Filter Negative Reviews"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3136,
+        2448
+      ],
+      "id": "96145029-e9d4-4375-8edb-a3f2f41d4b4f",
+      "name": "Loop Over Items1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "name": "Replace Me1",
+      "typeVersion": 1,
+      "position": [
+        -2912,
+        2448
+      ],
+      "id": "09da1b3e-d21b-4c93-8acb-94ece05e6b3e",
+      "placeholder": true
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        416
+      ],
+      "id": "1b155e34-01d4-4db0-b6d5-12f8e7d921e9",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "UQH8rtu4xPGGIJn6",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is a batch of negative customer reviews. Classify each one and return the JSON array as instructed.\n\nReviews:\n{{ JSON.stringify($json.reviews) }}",
+        "options": {
+          "systemMessage": "You are a product review analyst for a skincare and beauty brand.\n\nYou will receive a batch of negative customer reviews. For each review, classify it into exactly one of the following buckets:\n\n- Delivery / Logistics\n- Packaging\n- Skin Reaction\n- Efficacy / Results\n- Texture / Consistency\n- Smell / Fragrance\n- Price / Value\n- Authenticity\n- Customer Service\n- Other\n\nRules:\n- Return ONLY a valid JSON array, no explanation, no markdown, no backticks\n- Each review must produce exactly one row in the output — even if the same product appears multiple times\n- If a product has 3 negative reviews, it must appear as 3 separate rows with 3 separate buckets\n- If a review does not clearly fit any bucket, use \"Other\"\n- Base classification primarily on review_text, use review_title as supporting context\n\nOutput format — each object must have exactly these fields:\n[\n  {\n    \"product_id\": \"P123\",\n    \"product_name\": \"Some Serum\",\n    \"brand_name\": \"BRAND\",\n    \"price_usd\": 45,\n    \"skin_type\": \"oily\",\n    \"rating\": 2,\n    \"review_title\": \"Terrible\",\n    \"review_text\": \"Made my skin worse\",\n    \"bucket\": \"Skin Reaction\"\n  }\n]",
+          "batching": {
+            "batchSize": 50
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1344,
+        192
+      ],
+      "id": "12bf5982-c3c1-440f-837e-adc1eacc3f22",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst reviews = JSON.parse(items[0].json.output);\n\nconst insights = items[1].json.output;\n\nconst result = reviews.map(item => ({ json: item }));\nresult.push({ json: { type: 'insights', insights: insights } });\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        592
+      ],
+      "id": "6d4d28be-797c-4b42-9a3f-c4bac06309e4",
+      "name": "Result Parser"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "redirect",
+        "redirectUrl": "=https://docs.google.com/document/d/{{ $('Create O/P Doc').first().json.id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        128,
+        496
+      ],
+      "id": "60dee06f-0fb0-4507-9de3-5cba3567b7b2",
+      "name": "Form",
+      "webhookId": "896d20f4-bee8-4739-b81a-d0a0e659a086"
+    },
+    {
+      "parameters": {
+        "folderId": "default",
+        "title": "=Negative Review Report - {{ $now.toFormat('yyyy-MM-dd')}}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        496
+      ],
+      "id": "daba0d61-8a7d-4161-aac8-e8f146ed3e82",
+      "name": "Create O/P Doc",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "G3QSTcE0YHiJWm1B",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "={{ $('Code in JavaScript3').item.json.report }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        496
+      ],
+      "id": "ab593049-c2a0-4448-a03f-051d884f0f90",
+      "name": "Update O/P Doc",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "G3QSTcE0YHiJWm1B",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here are the classified negative reviews:\n{{ JSON.stringify($input.all().map(i => i.json)) }}\n\nProvide the following in plain text, no markdown, no asterisks, no bullet symbols:\n\n1. TOP 3 CRITICAL ISSUES\nFor each issue: what it is, which products are affected, and why it is happening based on actual review text.\n\n2. MOST AFFECTED PRODUCTS\nList the top 3 products with the most complaints and what the dominant issue is for each.\n\n3. ACTIONABLE RECOMMENDATIONS\nThree specific things the brand team should do based on this data.\n\nBe specific. Reference actual product names and review text patterns. Keep it concise.",
+        "options": {
+          "systemMessage": "You are a senior product analyst. You will receive classified negative reviews for skincare and beauty products. Identify key issues, explain why they are happening based on review patterns, and suggest actionable fixes for the brand team.",
+          "batching": {
+            "batchSize": 50
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1344,
+        1008
+      ],
+      "id": "273c7ab4-ddef-4caf-b14a-74bd3e9d1428",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "reviews",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -1568,
+        928
+      ],
+      "id": "0a0001d5-6597-40b3-952d-84fd28615e37",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1264,
+        1232
+      ],
+      "id": "e09f6b93-ac86-40ed-9180-950985440a4e",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "UQH8rtu4xPGGIJn6",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 25,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1792,
+        928
+      ],
+      "id": "34ad2757-a7d5-4b38-a678-1eb5c2d1b1b5",
+      "name": "Loop Over Items2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -1568,
+        592
+      ],
+      "id": "364bdca7-246e-4865-80b3-1eab61e07673",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst reviews = items.filter(i => i.json.type !== 'insights');\nconst insights = items.find(i => i.json.type === 'insights').json.insights;\n\nconst line = '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━';\n\nconst reviewDetails = reviews.map(i => \n  `[${i.json.bucket}] ${i.json.brand_name} - ${i.json.product_name} (${i.json.rating} stars)\\n\"${i.json.review_title}\"\\n${i.json.review_text}`\n).join('\\n\\n');\n\nconst report = [\n  'NEGATIVE REVIEW ANALYSIS REPORT',\n  line,\n  `Generated: ${new Date().toISOString().split('T')[0]}`,\n  `Total Negative Reviews Analysed: ${reviews.length}`,\n  '',\n  line,\n  'BUCKET BREAKDOWN',\n  line,\n  `Skin Reaction:        ${reviews.filter(i => i.json.bucket === 'Skin Reaction').length} reviews`,\n  `Efficacy / Results:   ${reviews.filter(i => i.json.bucket === 'Efficacy / Results').length} reviews`,\n  `Texture/Consistency:  ${reviews.filter(i => i.json.bucket === 'Texture / Consistency').length} reviews`,\n  `Smell / Fragrance:    ${reviews.filter(i => i.json.bucket === 'Smell / Fragrance').length} reviews`,\n  `Packaging:            ${reviews.filter(i => i.json.bucket === 'Packaging').length} reviews`,\n  `Price / Value:        ${reviews.filter(i => i.json.bucket === 'Price / Value').length} reviews`,\n  `Authenticity:         ${reviews.filter(i => i.json.bucket === 'Authenticity').length} reviews`,\n  `Customer Service:     ${reviews.filter(i => i.json.bucket === 'Customer Service').length} reviews`,\n  `Other:                ${reviews.filter(i => i.json.bucket === 'Other').length} reviews`,\n  '',\n  line,\n  'AI INSIGHTS & RECOMMENDATIONS',\n  line,\n  insights,\n  '',\n  line,\n  'REVIEW DETAILS',\n  line,\n  reviewDetails\n].join('\\n');\n\nreturn [{ json: { report } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -992,
+        592
+      ],
+      "id": "7d896656-c20a-4eee-a09a-a3a5d84cf96a",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Bye Bye Idiot, Please dont come back",
+        "completionMessage": "Pls Dont come back, never pls pls pls",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        -3136,
+        1552
+      ],
+      "id": "3330a45f-76df-4222-b36a-3d90f383a75c",
+      "name": "Form1",
+      "webhookId": "12fef227-bd1a-4803-90cd-fee46da3ddfc"
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Create a doc?",
+        "formDescription": "Do you want to create a google doc with the output or show the output here?",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Decide",
+              "fieldType": "dropdown",
+              "defaultValue": "Yes, create a doc",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes, create a doc"
+                  },
+                  {
+                    "option": "No, show the output here"
+                  },
+                  {
+                    "option": "Keep your output with you"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -768,
+        592
+      ],
+      "id": "7de7775b-d7b7-41b3-af8a-542ed5c683e1",
+      "name": "Wait",
+      "webhookId": "efed94b4-7eb2-4677-9b90-07a842b91d86"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.Decide }}",
+                    "rightValue": "Yes, create a doc",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "bed52212-1f17-494e-af1f-7c714db5609b"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "005ede5f-d53d-4f1a-a965-515c4fc782e1",
+                    "leftValue": "={{ $json.Decide }}",
+                    "rightValue": "No, show the output here",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "100f7f45-7275-4d89-844a-f3eef0c39db3",
+                    "leftValue": "={{ $json.Decide }}",
+                    "rightValue": "Keep your output with you",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        576
+      ],
+      "id": "18cfad83-32f3-43da-bcb6-03f5bd5c4c51",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "={{ $('Code in JavaScript3').item.json.report }}"
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        -320,
+        688
+      ],
+      "id": "afee0dc9-7d47-427e-85a8-be0ce24419ec",
+      "name": "Form2",
+      "webhookId": "39814a45-5307-481d-8fc7-c6bcbc0b5eac"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "showText",
+        "responseText": "What an Idiot. Never wanna see you mate, good byeee...."
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        -320,
+        880
+      ],
+      "id": "2f9484c0-6aba-4b76-b699-318f8f81eb72",
+      "name": "Form3",
+      "webhookId": "beaa379a-4220-4c1a-924f-73ed7c9ff2b9"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Get Products Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Sheet ID and GID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reviews Data": {
+      "main": [
+        [
+          {
+            "node": "Filter Negative Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Products Data": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sheet ID and GID": {
+      "main": [
+        [
+          {
+            "node": "Get Reviews Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Negative Reviews": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Replace Me1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Me1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Result Parser": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create O/P Doc": {
+      "main": [
+        [
+          {
+            "node": "Update O/P Doc",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update O/P Doc": {
+      "main": [
+        [
+          {
+            "node": "Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Result Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Create O/P Doc",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Form2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Form3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "28cbe05e-b0d8-421d-96f9-9a8fb54fde65",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "690f4742a776561034b78a89fcc684419d728469b4f61f4ce1e3f378612f313f"
+  },
+  "nodeGroups": [],
+  "id": "DsjJyRRLBfYorL0B",
+  "tags": []
+}
