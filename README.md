@@ -6,7 +6,7 @@ An n8n workflow that automates negative customer review analysis for a D2C skinc
 
 ## Demo
 
-> https://drive.google.com/file/d/1__2F9ZnxbX5srwJiMA6L8TRVogFjJH88/view?usp=sharing
+> https://drive.google.com/file/d/1CD91lbwb-No_IBE10kXKKnwpiFCzL_wv/view?usp=sharing
 
 ---
 
